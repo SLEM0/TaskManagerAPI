@@ -72,6 +72,18 @@ builder.Services.AddRateLimiter(options =>
 builder.Services
     .AddInfrastructure(builder.Configuration); // Важно: это регистрирует AppDbContext
 
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000") // URL React-приложения
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+
 var app = builder.Build();
 
 // 2. ТЕПЕРЬ применяем миграции
@@ -88,6 +100,8 @@ catch (Exception ex)
 }
 
 app.UseRateLimiter();
+app.UseRouting();        //?
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 

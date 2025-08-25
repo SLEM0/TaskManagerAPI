@@ -23,5 +23,14 @@ services:
     depends_on:
       - postgres
 
+  frontend:
+    build:
+      context: ./frontend  
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"  
+    depends_on:
+      - taskmanagerapi  
+
 volumes:
   postgres_data:
