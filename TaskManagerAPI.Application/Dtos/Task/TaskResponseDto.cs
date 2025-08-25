@@ -1,4 +1,5 @@
 ﻿using TaskManagerAPI.Application.Dtos.Label;
+using TaskManagerAPI.Application.Dtos.Member;
 
 namespace TaskManagerAPI.Application.Dtos.Task;
 
@@ -13,4 +14,5 @@ public class TaskResponseDto
     public int TaskListId { get; set; }
     public int Order { get; set; }
     public IEnumerable<LabelResponseDto> Labels { get; set; }
+    public IEnumerable<MemberResponseDto> Members { get; set; }
 }

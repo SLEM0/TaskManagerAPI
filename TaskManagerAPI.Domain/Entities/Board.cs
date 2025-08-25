@@ -14,5 +14,5 @@ public class Board
     public List<Label> Labels { get; set; } = new();
 
     // Добавляем связь с участниками
-    public List<BoardUser> BoardUsers { get; set; } = new(); // Новое свойство
+    public List<BoardUser> BoardUsers { get; set; } = new();
 }

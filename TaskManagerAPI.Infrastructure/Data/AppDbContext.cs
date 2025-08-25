@@ -23,6 +23,11 @@ public class AppDbContext : DbContext
             .WithMany() // ← Без обратной навигации!
             .UsingEntity(j => j.ToTable("TaskLabels"));
 
+        modelBuilder.Entity<Domain.Entities.Task>()
+            .HasMany(t => t.Members)
+            .WithMany() // ← Без обратной связи!
+            .UsingEntity(j => j.ToTable("TaskAssignees"));
+
         // Уникальный составной ключ (чтобы пользователь не мог быть добавлен в доску дважды)
         modelBuilder.Entity<BoardUser>()
             .HasIndex(bu => new { bu.BoardId, bu.UserId })

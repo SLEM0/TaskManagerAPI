@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using TaskManagerAPI.Application.Dtos.Label;
+using TaskManagerAPI.Application.Dtos.Member;
 using TaskManagerAPI.Application.Dtos.Task;
 using TaskManagerAPI.Application.Dtos.TaskList;
 using TaskManagerAPI.Application.Interfaces;
@@ -26,6 +26,9 @@ public class TaskListService : ITaskListService
         var taskList = await _context.TaskLists
             .Include(tl => tl.Tasks)
                 .ThenInclude(t => t.Labels) // ← Добавляем загрузку меток!
+            .Include(tl => tl.Tasks)
+                .ThenInclude(t => t.Members)
+                    .ThenInclude(m => m.User)
             .Include(tl => tl.Board)
             .AsSplitQuery() // ← Важно для избежания cartesian product
             .FirstOrDefaultAsync(tl => tl.Id == taskListId);
@@ -61,6 +64,16 @@ public class TaskListService : ITaskListService
                         Color = label.Color,
                         CreatedAt = label.CreatedAt,
                         BoardId = label.BoardId
+                    }),
+                    Members = t.Members.Select(member => new MemberResponseDto
+                    {
+                        Id = member.Id,
+                        BoardId = member.BoardId,
+                        UserId = member.User.Id,
+                        UserName = member.User.Username,
+                        UserEmail = member.User.Email,
+                        Role = member.Role,
+                        AddedAt = member.AddedAt
                     })
                 })
         };
@@ -105,6 +118,9 @@ public class TaskListService : ITaskListService
             .Include(tl => tl.Board)
             .Include(tl => tl.Tasks)
                 .ThenInclude(t => t.Labels) // ← Добавляем загрузку меток!
+            .Include(tl => tl.Tasks)
+                .ThenInclude(t => t.Members)
+                    .ThenInclude(m => m.User)
             .AsSplitQuery()
             .FirstOrDefaultAsync(tl => tl.Id == taskListId);
 
@@ -142,8 +158,18 @@ public class TaskListService : ITaskListService
                     Color = label.Color,
                     CreatedAt = label.CreatedAt,
                     BoardId = label.BoardId
+                }),
+                Members = t.Members.Select(member => new MemberResponseDto
+                {
+                    Id = member.Id,
+                    BoardId = member.BoardId,
+                    UserId = member.User.Id,
+                    UserName = member.User.Username,
+                    UserEmail = member.User.Email,
+                    Role = member.Role,
+                    AddedAt = member.AddedAt
                 })
-            })
+                })
         };
     }
 
@@ -168,6 +194,9 @@ public class TaskListService : ITaskListService
             .Include(tl => tl.Board)
             .Include(tl => tl.Tasks)
                 .ThenInclude(t => t.Labels)
+            .Include(tl => tl.Tasks)
+                .ThenInclude(t => t.Members)
+                    .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(tl => tl.Id == taskListId);
 
         if (taskList == null) throw new KeyNotFoundException("Task list not found");
@@ -218,6 +247,16 @@ public class TaskListService : ITaskListService
                         Color = label.Color,
                         CreatedAt = label.CreatedAt,
                         BoardId = label.BoardId
+                    }),
+                    Members = t.Members.Select(member => new MemberResponseDto
+                    {
+                        Id = member.Id,
+                        BoardId = member.BoardId,
+                        UserId = member.User.Id,
+                        UserName = member.User.Username,
+                        UserEmail = member.User.Email,
+                        Role = member.Role,
+                        AddedAt = member.AddedAt
                     })
                 })
         };

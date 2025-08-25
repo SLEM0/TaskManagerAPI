@@ -12,7 +12,7 @@ public interface IBoardService
     Task<BoardResponseDto> CreateBoardAsync(BoardRequestDto dto, int usedId);
     Task<BoardResponseDto> UpdateBoardAsync(int boardId, BoardRequestDto dto);
     Task DeleteBoardAsync(int boardId);
-    Task<MemberResponseDto> AddBoardMemberAsync(int boardId, MemberRequestDto dto);
+    Task<MemberResponseDto> AddBoardMemberAsync(int boardId, AddMemberRequestDto dto);
     Task RemoveBoardMemberAsync(int boardId, int userId, int requestingUserId);
     Task<IEnumerable<TaskListResponseDto>> GetFilteredBoardTasksAsync(int boardId, TaskFilterDto filterDto);
 }

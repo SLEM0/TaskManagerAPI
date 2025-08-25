@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TaskManagerAPI.Application.Dtos.Label;
+using TaskManagerAPI.Application.Dtos.Member;
 using TaskManagerAPI.Application.Dtos.Task;
 using TaskManagerAPI.Application.Interfaces;
 using TaskManagerAPI.Domain.Enums;
@@ -55,7 +56,8 @@ public class TaskService : ITaskService
             CreatedAt = task.CreatedAt,
             TaskListId = task.TaskListId,
             Order = task.Order,
-            Labels = new List<LabelResponseDto>()
+            Labels = new List<LabelResponseDto>(),
+            Members = new List<MemberResponseDto>()
         };
     }
 
@@ -63,6 +65,8 @@ public class TaskService : ITaskService
     {
         var task = await _context.Tasks
             .Include(t => t.Labels)
+            .Include(t => t.Members)
+                .ThenInclude(m => m.User)
             .Include(t => t.TaskList)
             .ThenInclude(tl => tl.Board)
             .FirstOrDefaultAsync(t => t.Id == taskId);
@@ -90,6 +94,16 @@ public class TaskService : ITaskService
                 Color = l.Color,
                 CreatedAt = l.CreatedAt,
                 BoardId = l.BoardId,
+            }),
+            Members = task.Members.Select(member => new MemberResponseDto
+            {
+                Id = member.Id,
+                BoardId = member.BoardId,
+                UserId = member.User.Id,
+                UserName = member.User.Username,
+                UserEmail = member.User.Email,
+                Role = member.Role,
+                AddedAt = member.AddedAt
             })
         };
     }
@@ -99,6 +113,8 @@ public class TaskService : ITaskService
         var task = await _context.Tasks
             .Include(t => t.TaskList)
             .Include(t => t.Labels)
+            .Include(t => t.Members)
+                .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -130,6 +146,16 @@ public class TaskService : ITaskService
                 Color = l.Color,
                 CreatedAt = l.CreatedAt,
                 BoardId = l.BoardId
+            }),
+            Members = task.Members.Select(member => new MemberResponseDto
+            {
+                Id = member.Id,
+                BoardId = member.BoardId,
+                UserId = member.User.Id,
+                UserName = member.User.Username,
+                UserEmail = member.User.Email,
+                Role = member.Role,
+                AddedAt = member.AddedAt
             })
         };
     }
@@ -153,6 +179,8 @@ public class TaskService : ITaskService
     {
         var task = await _context.Tasks
             .Include(t => t.Labels)
+            .Include(t => t.Members)
+                .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -230,6 +258,16 @@ public class TaskService : ITaskService
                 Color = label.Color,
                 CreatedAt = label.CreatedAt,
                 BoardId = label.BoardId
+            }),
+            Members = task.Members.Select(member => new MemberResponseDto
+            {
+                Id = member.Id,
+                BoardId = member.BoardId,
+                UserId = member.User.Id,
+                UserName = member.User.Username,
+                UserEmail = member.User.Email,
+                Role = member.Role,
+                AddedAt = member.AddedAt
             })
         };
     }
@@ -238,6 +276,8 @@ public class TaskService : ITaskService
     {
         var task = await _context.Tasks
             .Include(t => t.Labels)
+            .Include(t => t.Members)
+                .ThenInclude(m => m.User)
             .Include(t => t.TaskList)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
@@ -272,6 +312,16 @@ public class TaskService : ITaskService
                 Color = l.Color,
                 CreatedAt = l.CreatedAt,
                 BoardId = l.BoardId
+            }),
+            Members = task.Members.Select(member => new MemberResponseDto
+            {
+                Id = member.Id,
+                BoardId = member.BoardId,
+                UserId = member.User.Id,
+                UserName = member.User.Username,
+                UserEmail = member.User.Email,
+                Role = member.Role,
+                AddedAt = member.AddedAt
             })
         };
     }
@@ -280,6 +330,8 @@ public class TaskService : ITaskService
     {
         var task = await _context.Tasks
             .Include(t => t.Labels)
+            .Include(t => t.Members)
+                .ThenInclude(m => m.User)
             .Include(t => t.TaskList)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
@@ -311,6 +363,134 @@ public class TaskService : ITaskService
                 Color = l.Color,
                 CreatedAt = l.CreatedAt,
                 BoardId = l.BoardId
+            }),
+            Members = task.Members.Select(member => new MemberResponseDto
+            {
+                Id = member.Id,
+                BoardId = member.BoardId,
+                UserId = member.User.Id,
+                UserName = member.User.Username,
+                UserEmail = member.User.Email,
+                Role = member.Role,
+                AddedAt = member.AddedAt
+            })
+        };
+    }
+
+    public async Task<TaskResponseDto> AssignTaskAsync(int taskId, MemberRequestDto memberDto)
+    {
+        var task = await _context.Tasks
+            .Include(t => t.Labels)
+            .Include(t => t.Members)
+                .ThenInclude(a => a.User)
+            .FirstOrDefaultAsync(t => t.Id == taskId);
+
+        if (task == null) throw new KeyNotFoundException("Task not found");
+
+        // Проверяем доступ к доске задачи
+        var taskList = await _context.TaskLists.FindAsync(task.TaskListId);
+        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(taskList.BoardId, BoardRole.Editor);
+        if (!hasAccess) throw new UnauthorizedAccessException();
+
+        // Находим участника доски
+        var boardUser = await _context.BoardUsers
+            .Include(bu => bu.User)
+            .FirstOrDefaultAsync(bu => bu.Id == memberDto.UserId && bu.BoardId == taskList.BoardId);
+
+        if (boardUser == null)
+            throw new KeyNotFoundException("Board member not found or does not belong to this board");
+
+        // Проверяем что участник уже не назначен на задачу
+        if (task.Members.Any(a => a.Id == memberDto.UserId))
+            throw new InvalidOperationException("User is already assigned to this task");
+
+        // Добавляем участника
+        task.Members.Add(boardUser);
+        await _context.SaveChangesAsync();
+
+        // Возвращаем DTO с обновленными данными
+        return new TaskResponseDto
+        {
+            Id = task.Id,
+            Title = task.Title,
+            Description = task.Description,
+            DueDate = task.DueDate,
+            IsCompleted = task.IsCompleted,
+            CreatedAt = task.CreatedAt,
+            TaskListId = task.TaskListId,
+            Order = task.Order,
+            Labels = task.Labels.Select(label => new LabelResponseDto
+            {
+                Id = label.Id,
+                Name = label.Name,
+                Color = label.Color,
+                CreatedAt = label.CreatedAt,
+                BoardId = label.BoardId
+            }),
+            Members = task.Members.Select(member => new MemberResponseDto
+            {
+                Id = member.Id,
+                BoardId = member.BoardId,
+                UserId = member.User.Id,
+                UserName = member.User.Username,
+                UserEmail = member.User.Email,
+                Role = member.Role,
+                AddedAt = member.AddedAt
+            })
+        };
+    }
+
+    public async Task<TaskResponseDto> UnassignTaskAsync(int taskId, MemberRequestDto memberDto)
+    {
+        var task = await _context.Tasks
+            .Include(t => t.Labels)
+            .Include(t => t.Members)
+                .ThenInclude(a => a.User)
+            .FirstOrDefaultAsync(t => t.Id == taskId);
+
+        if (task == null) throw new KeyNotFoundException("Task not found");
+
+        // Проверяем доступ к доске задачи
+        var taskList = await _context.TaskLists.FindAsync(task.TaskListId);
+        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(taskList.BoardId, BoardRole.Editor);
+        if (!hasAccess) throw new UnauthorizedAccessException();
+
+        // Находим участника для удаления
+        var member = task.Members.FirstOrDefault(a => a.Id == memberDto.UserId);
+        if (member == null) throw new KeyNotFoundException("Assignee not found");
+
+        // Удаляем участника
+        task.Members.Remove(member);
+        await _context.SaveChangesAsync();
+
+        // Возвращаем DTO с обновленными данными
+        return new TaskResponseDto
+        {
+            Id = task.Id,
+            Title = task.Title,
+            Description = task.Description,
+            DueDate = task.DueDate,
+            IsCompleted = task.IsCompleted,
+            CreatedAt = task.CreatedAt,
+            TaskListId = task.TaskListId,
+            Order = task.Order,
+            Labels = task.Labels.Select(label => new LabelResponseDto
+            {
+                Id = label.Id,
+                Name = label.Name,
+                Color = label.Color,
+                CreatedAt = label.CreatedAt,
+                BoardId = label.BoardId
+            }),
+            Members = task.Members.Select(member => new MemberResponseDto
+            {
+                Id = member.Id,
+                BoardId = member.BoardId,
+                UserId = member.User.Id,
+                UserName = member.User.Username,
+                UserEmail = member.User.Email,
+                Role = member.Role,
+                AddedAt = member.AddedAt
             })
         };
     }

@@ -110,7 +110,7 @@ public class BoardController : ControllerBase
     }
 
     [HttpPost("{boardId}/members")]
-    public async Task<ActionResult<MemberResponseDto>> AddBoardMember(int boardId, [FromBody] MemberRequestDto dto)
+    public async Task<ActionResult<MemberResponseDto>> AddBoardMember(int boardId, [FromBody] AddMemberRequestDto dto)
     {
         try
         {
@@ -132,7 +132,7 @@ public class BoardController : ControllerBase
     }
 
     [HttpDelete("{boardId}/members")]
-    public async Task<IActionResult> RemoveBoardMember(int boardId, [FromBody] RemoveMemberRequestDto removeMemberDto)
+    public async Task<IActionResult> RemoveBoardMember(int boardId, [FromBody] MemberRequestDto removeMemberDto)
     {
         try
         {

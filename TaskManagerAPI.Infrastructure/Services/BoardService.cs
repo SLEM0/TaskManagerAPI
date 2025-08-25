@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System.Threading.Tasks;
 using TaskManagerAPI.Application.Dtos.Board;
 using TaskManagerAPI.Application.Dtos.Label;
 using TaskManagerAPI.Application.Dtos.Member;
@@ -103,6 +104,10 @@ public class BoardService : IBoardService
             .Include(b => b.Lists)
                 .ThenInclude(l => l.Tasks)
                     .ThenInclude(t => t.Labels)
+            .Include(b => b.Lists)
+                .ThenInclude(l => l.Tasks)
+                    .ThenInclude(t => t.Members)
+                        .ThenInclude(m => m.User)
             .Include(b => b.Labels)
             .Include(b => b.BoardUsers)
                 .ThenInclude(bu => bu.User)
@@ -148,8 +153,18 @@ public class BoardService : IBoardService
                         Color = label.Color,
                         CreatedAt = label.CreatedAt,
                         BoardId = label.BoardId
+                    }),
+                    Members = t.Members.Select(member => new MemberResponseDto
+                    {
+                        Id = member.Id,
+                        BoardId = member.BoardId,
+                        UserId = member.User.Id,
+                        UserName = member.User.Username,
+                        UserEmail = member.User.Email,
+                        Role = member.Role,
+                        AddedAt = member.AddedAt
                     })
-                })
+                    })
             }),
             Labels = board.Labels.Select(l => new LabelResponseDto
             {
@@ -182,6 +197,10 @@ public class BoardService : IBoardService
             .Include(b => b.Lists)
                 .ThenInclude(l => l.Tasks)
                     .ThenInclude(t => t.Labels)
+            .Include(b => b.Lists)
+                .ThenInclude(l => l.Tasks)
+                    .ThenInclude(t => t.Members)
+                        .ThenInclude(m => m.User)
             .Include(b => b.Labels)
             .Include(b => b.BoardUsers)
                 .ThenInclude(bu => bu.User)
@@ -232,8 +251,18 @@ public class BoardService : IBoardService
                         Color = label.Color,
                         CreatedAt = label.CreatedAt,
                         BoardId = label.BoardId
+                    }),
+                    Members = t.Members.Select(member => new MemberResponseDto
+                    {
+                        Id = member.Id,
+                        BoardId = member.BoardId,
+                        UserId = member.User.Id,
+                        UserName = member.User.Username,
+                        UserEmail = member.User.Email,
+                        Role = member.Role,
+                        AddedAt = member.AddedAt
                     })
-                })
+                    })
             }),
             Labels = board.Labels.Select(l => new LabelResponseDto
             {
@@ -268,7 +297,7 @@ public class BoardService : IBoardService
         await _context.SaveChangesAsync();
     }
 
-    public async Task<MemberResponseDto> AddBoardMemberAsync(int boardId, MemberRequestDto dto)
+    public async Task<MemberResponseDto> AddBoardMemberAsync(int boardId, AddMemberRequestDto dto)
     {
         var (hasAccess, _) = await _authService.CheckBoardAccessAsync(boardId, BoardRole.Owner);
         if (!hasAccess) throw new UnauthorizedAccessException();
@@ -332,6 +361,10 @@ public class BoardService : IBoardService
             .Include(b => b.Lists)
                 .ThenInclude(l => l.Tasks)
                     .ThenInclude(t => t.Labels)
+            .Include(b => b.Lists)
+                .ThenInclude(l => l.Tasks)
+                    .ThenInclude(t => t.Members) // ← Исправляем на Assignees
+                        .ThenInclude(a => a.User)
             .AsSplitQuery()
             .FirstOrDefaultAsync(b => b.Id == boardId);
 
@@ -339,9 +372,10 @@ public class BoardService : IBoardService
 
         var allTasks = board.Lists
             .SelectMany(l => l.Tasks
-                .OrderBy(t => t.Order) // ← Сортируем задачи в каждом списке
+                .OrderBy(t => t.Order)
             )
             .ToList();
+
         var filteredTasks = ApplyFilters(allTasks.AsQueryable(), filterDto).ToList();
 
         return board.Lists
@@ -372,6 +406,16 @@ public class BoardService : IBoardService
                             Color = label.Color,
                             CreatedAt = label.CreatedAt,
                             BoardId = label.BoardId
+                        }),
+                        Members = t.Members.Select(member => new MemberResponseDto // ← Исправляем на Assignees
+                        {
+                            Id = member.Id,
+                            BoardId = member.BoardId,
+                            UserId = member.User.Id,
+                            UserName = member.User.Username,
+                            UserEmail = member.User.Email,
+                            Role = member.Role,
+                            AddedAt = member.AddedAt
                         })
                     })
                     .ToList()
@@ -382,30 +426,62 @@ public class BoardService : IBoardService
 
     private IQueryable<Domain.Entities.Task> ApplyFilters(IQueryable<Domain.Entities.Task> query, TaskFilterDto filterDto)
     {
+        // Фильтр по меткам
         if (filterDto.LabelIds != null && filterDto.LabelIds.Any())
         {
             query = query.Where(t => t.Labels.Any(l => filterDto.LabelIds.Contains(l.Id)));
         }
 
+        // Фильтр по участникам (НОВОЕ!)
+        if (filterDto.MemberIds != null && filterDto.MemberIds.Any())
+        {
+            query = query.Where(t => t.Members.Any(a => filterDto.MemberIds.Contains(a.UserId)));
+        }
+
+        // Фильтр по статусу выполнения
         if (filterDto.IsCompleted.HasValue)
         {
             query = query.Where(t => t.IsCompleted == filterDto.IsCompleted.Value);
         }
 
+        // Фильтр по сроку выполнения (с учетом времени!)
         if (filterDto.DueDatePreset.HasValue)
         {
-            var now = DateTime.UtcNow;
-            var today = now.Date;
+            var now = DateTime.UtcNow; // Текущее время с учетом часов и минут
 
             query = filterDto.DueDatePreset.Value switch
             {
-                DueDateFilter.Expired => query.Where(t => t.DueDate != null && t.DueDate < today && !t.IsCompleted),
-                DueDateFilter.DueToday => query.Where(t => t.DueDate != null && t.DueDate.Value.Date == today),
-                DueDateFilter.DueTomorrow => query.Where(t => t.DueDate != null && t.DueDate.Value.Date == today.AddDays(1)),
-                DueDateFilter.ThisWeek => query.Where(t => t.DueDate != null && t.DueDate >= today && t.DueDate < today.AddDays(7)),
-                DueDateFilter.NextWeek => query.Where(t => t.DueDate != null && t.DueDate >= today.AddDays(7) && t.DueDate < today.AddDays(14)),
-                DueDateFilter.ThisMonth => query.Where(t => t.DueDate != null && t.DueDate >= today && t.DueDate < today.AddMonths(1)),
+                // Просроченные: срок меньше текущего момента
+                DueDateFilter.Expired => query.Where(t => t.DueDate != null && t.DueDate < now),
+
+                // Сегодня: срок между началом сегодняшнего дня и началом завтрашнего
+                DueDateFilter.DueToday => query.Where(t => t.DueDate != null &&
+                    t.DueDate >= now.Date &&
+                    t.DueDate < now.Date.AddDays(1)),
+
+                // Завтра: срок между началом завтрашнего дня и началом послезавтра
+                DueDateFilter.DueTomorrow => query.Where(t => t.DueDate != null &&
+                    t.DueDate >= now.Date.AddDays(1) &&
+                    t.DueDate < now.Date.AddDays(2)),
+
+                // Эта неделя: срок между сейчас и концом недели
+                DueDateFilter.ThisWeek => query.Where(t => t.DueDate != null &&
+                    t.DueDate >= now &&
+                    t.DueDate < now.Date.AddDays(7 - (int)now.DayOfWeek)),
+
+                // Следующая неделя: срок между началом след. недели и концом след. недели
+                DueDateFilter.NextWeek => query.Where(t => t.DueDate != null &&
+                    t.DueDate >= now.Date.AddDays(7 - (int)now.DayOfWeek) &&
+                    t.DueDate < now.Date.AddDays(14 - (int)now.DayOfWeek)),
+
+                // Этот месяц: срок между сейчас и концом месяца
+                DueDateFilter.ThisMonth => query.Where(t => t.DueDate != null &&
+                    t.DueDate >= now &&
+                    t.DueDate < new DateTime(now.Year, now.Month, 1).AddMonths(1)),
+
+                // Без срока
                 DueDateFilter.NoDate => query.Where(t => t.DueDate == null),
+
                 _ => query
             };
         }

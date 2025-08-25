@@ -1,4 +1,5 @@
-﻿using TaskManagerAPI.Application.Dtos.Task;
+﻿using TaskManagerAPI.Application.Dtos.Member;
+using TaskManagerAPI.Application.Dtos.Task;
 
 namespace TaskManagerAPI.Application.Interfaces;
 
@@ -11,4 +12,6 @@ public interface ITaskService
     Task<TaskResponseDto> MoveTaskAsync(int taskId, MoveTaskRequestDto moveDto);
     Task<TaskResponseDto> AddLabelToTaskAsync(int taskId, AddLabelToTaskRequestDto addLabelDto);
     Task<TaskResponseDto> RemoveLabelFromTaskAsync(int taskId, int labelId);
+    Task<TaskResponseDto> AssignTaskAsync(int taskId, MemberRequestDto memberDto);
+    Task<TaskResponseDto> UnassignTaskAsync(int taskId, MemberRequestDto memberDto);
 }

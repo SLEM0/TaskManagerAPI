@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TaskManagerAPI.Application.Dtos.Member;
 using TaskManagerAPI.Application.Dtos.Task;
 using TaskManagerAPI.Application.Interfaces;
 
@@ -126,6 +127,52 @@ public class TaskController : ControllerBase
         catch (UnauthorizedAccessException)
         {
             return Forbid();
+        }
+    }
+
+    [HttpPost("{taskId}/assignees")]
+    public async Task<ActionResult<TaskResponseDto>> AssignTask(
+        int taskId, [FromBody] MemberRequestDto memberDto)
+    {
+        try
+        {
+            var task = await _taskService.AssignTaskAsync(taskId, memberDto);
+            return Ok(task);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{taskId}/assignees")]
+    public async Task<ActionResult<TaskResponseDto>> UnassignTask(
+        int taskId, [FromBody] MemberRequestDto memberDto)
+    {
+        try
+        {
+            var task = await _taskService.UnassignTaskAsync(taskId, memberDto);
+            return Ok(task);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
     }
 }
