@@ -111,6 +111,36 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.ToTable("BoardUsers");
                 });
 
+            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("TaskId");
+
+                    b.ToTable("Comments");
+                });
+
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Label", b =>
                 {
                     b.Property<int>("Id")
@@ -326,6 +356,25 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Comment", b =>
+                {
+                    b.HasOne("TaskManagerAPI.Domain.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TaskManagerAPI.Domain.Entities.Task", "Task")
+                        .WithMany("Comments")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Task");
+                });
+
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Label", b =>
                 {
                     b.HasOne("TaskManagerAPI.Domain.Entities.Board", "Board")
@@ -377,6 +426,11 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.Navigation("Labels");
 
                     b.Navigation("Lists");
+                });
+
+            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Task", b =>
+                {
+                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.TaskList", b =>

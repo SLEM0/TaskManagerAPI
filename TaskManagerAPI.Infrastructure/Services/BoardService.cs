@@ -136,7 +136,7 @@ public class BoardService : IBoardService
                 Order = l.Order,
                 Tasks = l.Tasks
                     .OrderBy(t => t.Order)
-                    .Select(t => new TaskResponseDto
+                    .Select(t => new ShortTaskResponseDto
                 {
                     Id = t.Id,
                     Title = t.Title,
@@ -234,7 +234,7 @@ public class BoardService : IBoardService
                 Order = l.Order,
                 Tasks = l.Tasks
                     .OrderBy(t => t.Order)
-                    .Select(t => new TaskResponseDto
+                    .Select(t => new ShortTaskResponseDto
                 {
                     Id = t.Id,
                     Title = t.Title,
@@ -389,7 +389,7 @@ public class BoardService : IBoardService
                 Order = list.Order,
                 Tasks = filteredTasks
                     .Where(t => t.TaskListId == list.Id)
-                    .Select(t => new TaskResponseDto
+                    .Select(t => new ShortTaskResponseDto
                     {
                         Id = t.Id,
                         Title = t.Title,

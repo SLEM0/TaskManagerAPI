@@ -1,6 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using System.Diagnostics;
+using System.Net.Sockets;
 using System.Security.Claims;
 using TaskManagerAPI.Application.Dtos.Auth;
 using TaskManagerAPI.Application.Interfaces;
@@ -47,10 +51,20 @@ public class AuthController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest("Invalid email or password");
         }
-        catch (Exception)
+        catch (NpgsqlException ex) when (ex.InnerException is SocketException)
         {
+            return StatusCode(503, "Database is unavailable. Please try again later.");
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("transient", StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(503, "Database is initializing. Please try again in a moment.");
+        }
+        catch (Exception ex)
+        {
+            // Правильное логирование
+            Debug.WriteLine($"Login error for email: {request.Email}. Error: {ex.Message}");
             return StatusCode(500, "Login failed. Please try again.");
         }
     }

@@ -47,7 +47,7 @@ public class TaskListService : ITaskListService
             Order = taskList.Order,
             Tasks = taskList.Tasks
                 .OrderBy(t => t.Order)
-                .Select(t => new TaskResponseDto
+                .Select(t => new ShortTaskResponseDto
                 {
                     Id = t.Id,
                     Title = t.Title,
@@ -108,7 +108,7 @@ public class TaskListService : ITaskListService
             BoardId = taskList.BoardId,
             CreatedAt = taskList.CreatedAt,
             Order = taskList.Order,
-            Tasks = new List<TaskResponseDto>()
+            Tasks = new List<ShortTaskResponseDto>()
         };
     }
 
@@ -141,7 +141,7 @@ public class TaskListService : ITaskListService
             Order = taskList.Order,
             Tasks = taskList.Tasks
                 .OrderBy(t => t.Order)
-                .Select(t => new TaskResponseDto
+                .Select(t => new ShortTaskResponseDto
             {
                 Id = t.Id,
                 Title = t.Title,
@@ -230,7 +230,7 @@ public class TaskListService : ITaskListService
             Order = taskList.Order,
             Tasks = taskList.Tasks
                 .OrderBy(t => t.Order)
-                .Select(t => new TaskResponseDto
+                .Select(t => new ShortTaskResponseDto
                 {
                     Id = t.Id,
                     Title = t.Title,

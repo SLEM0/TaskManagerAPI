@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace TaskManagerAPI.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class ItitialCreate : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -131,7 +131,8 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Title = table.Column<string>(type: "text", nullable: false),
                     BoardId = table.Column<int>(type: "integer", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Order = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -155,6 +156,7 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     DueDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Order = table.Column<int>(type: "integer", nullable: false),
                     TaskListId = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
@@ -169,15 +171,67 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Comments",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Content = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    TaskId = table.Column<int>(type: "integer", nullable: false),
+                    AuthorId = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Comments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Comments_Tasks_TaskId",
+                        column: x => x.TaskId,
+                        principalTable: "Tasks",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Comments_Users_AuthorId",
+                        column: x => x.AuthorId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TaskAssignees",
+                columns: table => new
+                {
+                    MembersId = table.Column<int>(type: "integer", nullable: false),
+                    TaskId = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TaskAssignees", x => new { x.MembersId, x.TaskId });
+                    table.ForeignKey(
+                        name: "FK_TaskAssignees_BoardUsers_MembersId",
+                        column: x => x.MembersId,
+                        principalTable: "BoardUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_TaskAssignees_Tasks_TaskId",
+                        column: x => x.TaskId,
+                        principalTable: "Tasks",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "TaskLabels",
                 columns: table => new
                 {
                     LabelsId = table.Column<int>(type: "integer", nullable: false),
-                    TasksId = table.Column<int>(type: "integer", nullable: false)
+                    TaskId = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_TaskLabels", x => new { x.LabelsId, x.TasksId });
+                    table.PrimaryKey("PK_TaskLabels", x => new { x.LabelsId, x.TaskId });
                     table.ForeignKey(
                         name: "FK_TaskLabels_Labels_LabelsId",
                         column: x => x.LabelsId,
@@ -185,8 +239,8 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_TaskLabels_Tasks_TasksId",
-                        column: x => x.TasksId,
+                        name: "FK_TaskLabels_Tasks_TaskId",
+                        column: x => x.TaskId,
                         principalTable: "Tasks",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -209,6 +263,16 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Comments_AuthorId",
+                table: "Comments",
+                column: "AuthorId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comments_TaskId",
+                table: "Comments",
+                column: "TaskId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Labels_BoardId",
                 table: "Labels",
                 column: "BoardId");
@@ -219,9 +283,14 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_TaskLabels_TasksId",
+                name: "IX_TaskAssignees_TaskId",
+                table: "TaskAssignees",
+                column: "TaskId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TaskLabels_TaskId",
                 table: "TaskLabels",
-                column: "TasksId");
+                column: "TaskId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TaskLists_BoardId",
@@ -238,13 +307,19 @@ namespace TaskManagerAPI.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "BoardUsers");
+                name: "Comments");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");
 
             migrationBuilder.DropTable(
+                name: "TaskAssignees");
+
+            migrationBuilder.DropTable(
                 name: "TaskLabels");
+
+            migrationBuilder.DropTable(
+                name: "BoardUsers");
 
             migrationBuilder.DropTable(
                 name: "Labels");

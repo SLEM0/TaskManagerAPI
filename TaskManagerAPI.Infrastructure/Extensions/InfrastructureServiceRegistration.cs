@@ -23,6 +23,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ILabelService, LabelService>();
         services.AddScoped<ITaskService, TaskService>();
         services.AddScoped<ITaskListService, TaskListService>();
+        services.AddScoped<ICommentService,  CommentService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IUserContext, UserContext>();
 

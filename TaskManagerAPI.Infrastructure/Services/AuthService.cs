@@ -48,6 +48,11 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> LoginAsync(UserLoginDto request)
     {
+        var tableExists = await _context.Database.CanConnectAsync();
+        if (!tableExists)
+        {
+            throw new InvalidOperationException("Database not ready");
+        }
         // Поиск пользователя
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Email == request.Email);

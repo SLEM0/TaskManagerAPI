@@ -1,10 +1,9 @@
-﻿using TaskManagerAPI.Application.Dtos.Comment;
-using TaskManagerAPI.Application.Dtos.Label;
+﻿using TaskManagerAPI.Application.Dtos.Label;
 using TaskManagerAPI.Application.Dtos.Member;
 
 namespace TaskManagerAPI.Application.Dtos.Task;
 
-public class TaskResponseDto
+public class ShortTaskResponseDto
 {
     public int Id { get; set; }
     public string Title { get; set; }
@@ -16,5 +15,4 @@ public class TaskResponseDto
     public int Order { get; set; }
     public IEnumerable<LabelResponseDto> Labels { get; set; }
     public IEnumerable<MemberResponseDto> Members { get; set; }
-    public IEnumerable<CommentResponseDto> Comments { get; set; } // ← Добавляем комментарии
 }

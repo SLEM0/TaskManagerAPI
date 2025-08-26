@@ -12,8 +12,8 @@ using TaskManagerAPI.Infrastructure.Data;
 namespace TaskManagerAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250823152123_AddOrder")]
-    partial class AddOrder
+    [Migration("20250826142930_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,21 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("BoardUserTask", b =>
+                {
+                    b.Property<int>("MembersId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MembersId", "TaskId");
+
+                    b.HasIndex("TaskId");
+
+                    b.ToTable("TaskAssignees", (string)null);
+                });
 
             modelBuilder.Entity("LabelTask", b =>
                 {
@@ -97,6 +112,36 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("BoardUsers");
+                });
+
+            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Comment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("TaskId");
+
+                    b.ToTable("Comments");
                 });
 
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Label", b =>
@@ -254,6 +299,21 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("BoardUserTask", b =>
+                {
+                    b.HasOne("TaskManagerAPI.Domain.Entities.BoardUser", null)
+                        .WithMany()
+                        .HasForeignKey("MembersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TaskManagerAPI.Domain.Entities.Task", null)
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("LabelTask", b =>
                 {
                     b.HasOne("TaskManagerAPI.Domain.Entities.Label", null)
@@ -297,6 +357,25 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.Navigation("Board");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Comment", b =>
+                {
+                    b.HasOne("TaskManagerAPI.Domain.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TaskManagerAPI.Domain.Entities.Task", "Task")
+                        .WithMany("Comments")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Label", b =>
@@ -350,6 +429,11 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.Navigation("Labels");
 
                     b.Navigation("Lists");
+                });
+
+            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Task", b =>
+                {
+                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.TaskList", b =>

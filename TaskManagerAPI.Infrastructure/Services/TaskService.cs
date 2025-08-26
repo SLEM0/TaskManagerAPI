@@ -1,8 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using TaskManagerAPI.Application.Dtos.Comment;
 using TaskManagerAPI.Application.Dtos.Label;
 using TaskManagerAPI.Application.Dtos.Member;
 using TaskManagerAPI.Application.Dtos.Task;
 using TaskManagerAPI.Application.Interfaces;
+using TaskManagerAPI.Application.Utils;
+using TaskManagerAPI.Domain.Entities;
 using TaskManagerAPI.Domain.Enums;
 using TaskManagerAPI.Infrastructure.Data;
 
@@ -11,18 +14,30 @@ namespace TaskManagerAPI.Infrastructure.Services;
 public class TaskService : ITaskService
 {
     private readonly AppDbContext _context;
-    private readonly ICheckAccessService _authService;
+    private readonly ICheckAccessService _checkAccessService;
+    private readonly ICommentService _commentService;
+    private readonly IUserContext _userContext;
 
-    public TaskService(AppDbContext context, ICheckAccessService authService)
+    public TaskService(AppDbContext context, ICheckAccessService checkAccessService, ICommentService commentService, IUserContext userContext)
     {
         _context = context;
-        _authService = authService;
+        _checkAccessService = checkAccessService;
+        _commentService = commentService;
+        _userContext = userContext;
     }
 
     public async Task<TaskResponseDto> CreateTaskAsync(TaskRequestDto taskDto, int listId)
     {
-        // Проверяем доступ к списку задач (только редакторы и владельцы)
-        var (hasAccess, _) = await _authService.CheckTaskListAccessAsync(listId, BoardRole.Editor);
+        // ПРОВЕРЯЕМ существование списка задач
+        var taskList = await _context.TaskLists
+            .Include(tl => tl.Board) // Для проверки доступа
+            .FirstOrDefaultAsync(tl => tl.Id == listId);
+
+        if (taskList == null)
+            throw new KeyNotFoundException("Task list not found");
+
+        // Проверяем доступ к доске (а не к списку)
+        var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(taskList.BoardId, BoardRole.Editor);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         // Определяем порядок - последняя задача в списке + 1
@@ -38,9 +53,13 @@ public class TaskService : ITaskService
             Description = taskDto.Description,
             DueDate = taskDto.DueDate,
             TaskListId = listId,
+            TaskList = taskList, // ← ВАЖНО: устанавливаем навигационное свойство!
             IsCompleted = false,
             CreatedAt = DateTime.UtcNow,
-            Order = lastOrder + 1
+            Order = lastOrder + 1,
+            Labels = new List<Label>(),
+            Members = new List<BoardUser>(),
+            Comments = new List<Comment>()
         };
 
         _context.Tasks.Add(task);
@@ -57,7 +76,8 @@ public class TaskService : ITaskService
             TaskListId = task.TaskListId,
             Order = task.Order,
             Labels = new List<LabelResponseDto>(),
-            Members = new List<MemberResponseDto>()
+            Members = new List<MemberResponseDto>(),
+            Comments = new List<CommentResponseDto>()
         };
     }
 
@@ -69,12 +89,14 @@ public class TaskService : ITaskService
                 .ThenInclude(m => m.User)
             .Include(t => t.TaskList)
             .ThenInclude(tl => tl.Board)
+            .Include(t => t.Comments)
+                .ThenInclude(c => c.Author)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
 
         // Проверяем доступ к доске
-        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Viewer);
+        var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Viewer);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         return new TaskResponseDto
@@ -104,6 +126,15 @@ public class TaskService : ITaskService
                 UserEmail = member.User.Email,
                 Role = member.Role,
                 AddedAt = member.AddedAt
+            }),
+            Comments = task.Comments.Select(comment => new CommentResponseDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                TaskId = comment.TaskId,
+                AuthorId = comment.AuthorId,
+                AuthorName = comment.Author.Username
             })
         };
     }
@@ -115,17 +146,51 @@ public class TaskService : ITaskService
             .Include(t => t.Labels)
             .Include(t => t.Members)
                 .ThenInclude(m => m.User)
+            .Include(t => t.Comments)
+                .ThenInclude(c => c.Author)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
 
-        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
+        var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
-        task.Title = taskDto.Title;
-        task.Description = taskDto.Description;
-        task.DueDate = taskDto.DueDate;
-        task.IsCompleted = taskDto.IsCompleted ?? task.IsCompleted;
+        var changes = new List<string>();
+
+        if (task.Title != taskDto.Title)
+        {
+            changes.Add(SystemMessages.ChangedTitle(taskDto.Title));
+            task.Title = taskDto.Title;
+        }
+
+        if (task.Description != taskDto.Description)
+        {
+            changes.Add(SystemMessages.ChangedDescription());
+            task.Description = taskDto.Description;
+        }
+
+        if (task.DueDate != taskDto.DueDate)
+        {
+            changes.Add(SystemMessages.ChangedDueDate(taskDto.DueDate));
+            task.DueDate = taskDto.DueDate;
+        }
+
+        if (taskDto.IsCompleted.HasValue && task.IsCompleted != taskDto.IsCompleted)
+        {
+            changes.Add(taskDto.IsCompleted.Value ?
+                SystemMessages.MarkedAsCompleted() :
+                SystemMessages.MarkedAsIncomplete());
+            task.IsCompleted = taskDto.IsCompleted.Value;
+        }
+
+        // Логируем каждое изменение отдельным комментарием
+        if (changes.Any())
+        {
+            foreach (string change in changes)
+            {
+                await _commentService.SystemLogActionAsync(taskId, change, _userContext.GetCurrentUserId());
+            }
+        }
 
         await _context.SaveChangesAsync();
 
@@ -156,11 +221,20 @@ public class TaskService : ITaskService
                 UserEmail = member.User.Email,
                 Role = member.Role,
                 AddedAt = member.AddedAt
+            }),
+            Comments = task.Comments.Select(comment => new CommentResponseDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                TaskId = comment.TaskId,
+                AuthorId = comment.AuthorId,
+                AuthorName = comment.Author.Username
             })
         };
     }
 
-    public async Task DeleteTaskAsync(int taskId)
+    public async System.Threading.Tasks.Task DeleteTaskAsync(int taskId)
     {
         var task = await _context.Tasks
             .Include(t => t.TaskList)
@@ -168,7 +242,7 @@ public class TaskService : ITaskService
 
         if (task == null) throw new KeyNotFoundException("Task not found");
 
-        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
+        var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         _context.Tasks.Remove(task);
@@ -181,6 +255,8 @@ public class TaskService : ITaskService
             .Include(t => t.Labels)
             .Include(t => t.Members)
                 .ThenInclude(m => m.User)
+            .Include(t => t.Comments)
+                .ThenInclude(c => c.Author)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -192,7 +268,7 @@ public class TaskService : ITaskService
         if (sourceList == null) throw new KeyNotFoundException("Source task list not found");
 
         // Проверяем доступ к исходной доске
-        var (hasSourceAccess, _) = await _authService.CheckBoardAccessAsync(sourceList.BoardId, BoardRole.Editor);
+        var (hasSourceAccess, _) = await _checkAccessService.CheckBoardAccessAsync(sourceList.BoardId, BoardRole.Editor);
         if (!hasSourceAccess) throw new UnauthorizedAccessException();
 
         // Загружаем целевой список и проверяем его существование
@@ -208,7 +284,7 @@ public class TaskService : ITaskService
         }
 
         // Проверяем доступ к целевой доске (та же самая доска, но для consistency)
-        var (hasTargetAccess, _) = await _authService.CheckBoardAccessAsync(targetList.BoardId, BoardRole.Editor);
+        var (hasTargetAccess, _) = await _checkAccessService.CheckBoardAccessAsync(targetList.BoardId, BoardRole.Editor);
         if (!hasTargetAccess) throw new UnauthorizedAccessException();
 
         // Получаем все задачи в целевом списке (кроме перемещаемой)
@@ -237,6 +313,12 @@ public class TaskService : ITaskService
         if (moveDto.NewListId != task.TaskListId)
         {
             task.TaskListId = moveDto.NewListId;
+            var newList = await _context.TaskLists.FindAsync(moveDto.NewListId);
+            await _commentService.SystemLogActionAsync(
+                taskId,
+                SystemMessages.MovedToList(newList.Title),
+                _userContext.GetCurrentUserId()
+            );
         }
 
         await _context.SaveChangesAsync();
@@ -268,6 +350,15 @@ public class TaskService : ITaskService
                 UserEmail = member.User.Email,
                 Role = member.Role,
                 AddedAt = member.AddedAt
+            }),
+            Comments = task.Comments.Select(comment => new CommentResponseDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                TaskId = comment.TaskId,
+                AuthorId = comment.AuthorId,
+                AuthorName = comment.Author.Username
             })
         };
     }
@@ -278,12 +369,14 @@ public class TaskService : ITaskService
             .Include(t => t.Labels)
             .Include(t => t.Members)
                 .ThenInclude(m => m.User)
+            .Include(t => t.Comments)
+                .ThenInclude(c => c.Author)
             .Include(t => t.TaskList)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
 
-        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
+        var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         var label = await _context.Labels.FindAsync(addLabelDto.LabelId);
@@ -293,6 +386,13 @@ public class TaskService : ITaskService
             throw new InvalidOperationException("Label already added to task");
 
         task.Labels.Add(label);
+
+        await _commentService.SystemLogActionAsync(
+            taskId,
+            SystemMessages.AddedLabel(label.Name),
+            _userContext.GetCurrentUserId()
+        );
+
         await _context.SaveChangesAsync();
 
         return new TaskResponseDto
@@ -322,6 +422,15 @@ public class TaskService : ITaskService
                 UserEmail = member.User.Email,
                 Role = member.Role,
                 AddedAt = member.AddedAt
+            }),
+            Comments = task.Comments.Select(comment => new CommentResponseDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                TaskId = comment.TaskId,
+                AuthorId = comment.AuthorId,
+                AuthorName = comment.Author.Username
             })
         };
     }
@@ -332,18 +441,27 @@ public class TaskService : ITaskService
             .Include(t => t.Labels)
             .Include(t => t.Members)
                 .ThenInclude(m => m.User)
+            .Include(t => t.Comments)
+                .ThenInclude(c => c.Author)
             .Include(t => t.TaskList)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
 
-        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
+        var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         var label = task.Labels.FirstOrDefault(l => l.Id == labelId);
         if (label == null) throw new KeyNotFoundException("Label not found on this task");
 
         task.Labels.Remove(label);
+
+        await _commentService.SystemLogActionAsync(
+            taskId,
+            SystemMessages.RemovedLabel(label.Name),
+            _userContext.GetCurrentUserId()
+        );
+
         await _context.SaveChangesAsync();
 
         return new TaskResponseDto
@@ -373,6 +491,15 @@ public class TaskService : ITaskService
                 UserEmail = member.User.Email,
                 Role = member.Role,
                 AddedAt = member.AddedAt
+            }),
+            Comments = task.Comments.Select(comment => new CommentResponseDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                TaskId = comment.TaskId,
+                AuthorId = comment.AuthorId,
+                AuthorName = comment.Author.Username
             })
         };
     }
@@ -383,13 +510,15 @@ public class TaskService : ITaskService
             .Include(t => t.Labels)
             .Include(t => t.Members)
                 .ThenInclude(a => a.User)
+            .Include(t => t.Comments)
+                .ThenInclude(c => c.Author)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
 
         // Проверяем доступ к доске задачи
         var taskList = await _context.TaskLists.FindAsync(task.TaskListId);
-        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(taskList.BoardId, BoardRole.Editor);
+        var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(taskList.BoardId, BoardRole.Editor);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         // Находим участника доски
@@ -406,6 +535,13 @@ public class TaskService : ITaskService
 
         // Добавляем участника
         task.Members.Add(boardUser);
+
+        await _commentService.SystemLogActionAsync(
+            taskId,
+            SystemMessages.AssignedUser(boardUser.User.Username),
+            _userContext.GetCurrentUserId()
+        );
+
         await _context.SaveChangesAsync();
 
         // Возвращаем DTO с обновленными данными
@@ -436,6 +572,15 @@ public class TaskService : ITaskService
                 UserEmail = member.User.Email,
                 Role = member.Role,
                 AddedAt = member.AddedAt
+            }),
+            Comments = task.Comments.Select(comment => new CommentResponseDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                TaskId = comment.TaskId,
+                AuthorId = comment.AuthorId,
+                AuthorName = comment.Author.Username
             })
         };
     }
@@ -446,13 +591,15 @@ public class TaskService : ITaskService
             .Include(t => t.Labels)
             .Include(t => t.Members)
                 .ThenInclude(a => a.User)
+            .Include(t => t.Comments)
+                .ThenInclude(c => c.Author)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
 
         // Проверяем доступ к доске задачи
         var taskList = await _context.TaskLists.FindAsync(task.TaskListId);
-        var (hasAccess, _) = await _authService.CheckBoardAccessAsync(taskList.BoardId, BoardRole.Editor);
+        var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(taskList.BoardId, BoardRole.Editor);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         // Находим участника для удаления
@@ -461,6 +608,13 @@ public class TaskService : ITaskService
 
         // Удаляем участника
         task.Members.Remove(member);
+
+        await _commentService.SystemLogActionAsync(
+            taskId,
+            SystemMessages.UnassignedUser(member.User.Username),
+            _userContext.GetCurrentUserId()
+        );
+
         await _context.SaveChangesAsync();
 
         // Возвращаем DTO с обновленными данными
@@ -491,6 +645,15 @@ public class TaskService : ITaskService
                 UserEmail = member.User.Email,
                 Role = member.Role,
                 AddedAt = member.AddedAt
+            }),
+            Comments = task.Comments.Select(comment => new CommentResponseDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                TaskId = comment.TaskId,
+                AuthorId = comment.AuthorId,
+                AuthorName = comment.Author.Username
             })
         };
     }

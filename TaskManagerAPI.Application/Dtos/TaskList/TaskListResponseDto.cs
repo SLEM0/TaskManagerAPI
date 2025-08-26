@@ -9,5 +9,5 @@ public class TaskListResponseDto
     public int BoardId { get; set; }
     public DateTime CreatedAt { get; set; }
     public int Order { get; set; }
-    public IEnumerable<TaskResponseDto> Tasks { get; set; }
+    public IEnumerable<ShortTaskResponseDto> Tasks { get; set; }
 }

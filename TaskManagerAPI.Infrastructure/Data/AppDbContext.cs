@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Label> Labels { get; set; }
     public DbSet<BoardUser> BoardUsers { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
+    public DbSet<Comment> Comments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +28,16 @@ public class AppDbContext : DbContext
             .HasMany(t => t.Members)
             .WithMany() // ← Без обратной связи!
             .UsingEntity(j => j.ToTable("TaskAssignees"));
+
+        modelBuilder.Entity<Comment>()
+        .HasOne(c => c.Task)
+        .WithMany(t => t.Comments)
+        .HasForeignKey(c => c.TaskId);
+
+        modelBuilder.Entity<Comment>()
+            .HasOne(c => c.Author)
+            .WithMany()
+            .HasForeignKey(c => c.AuthorId);
 
         // Уникальный составной ключ (чтобы пользователь не мог быть добавлен в доску дважды)
         modelBuilder.Entity<BoardUser>()

@@ -1,11 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Threading.RateLimiting;
-using TaskManagerAPI.Infrastructure.Data;
 using TaskManagerAPI.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -83,21 +81,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-
 var app = builder.Build();
-
-// 2. ТЕПЕРЬ применяем миграции
-try
-{
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.Migrate();
-    Console.WriteLine("Database migrations applied successfully.");
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"Error applying migrations: {ex.Message}");
-}
 
 app.UseRateLimiter();
 app.UseRouting();        //?
