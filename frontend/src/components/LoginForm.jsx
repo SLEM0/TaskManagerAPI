@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Eye, EyeOff, Mail, User, Lock, Sparkles, Check, X } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Sparkles, X, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-const RegisterForm = ({ onSwitchToLogin }) => {
+const LoginForm = ({ onSwitchToRegister }) => {
     const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [serverError, setServerError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAutoCompleteDisabled, setIsAutoCompleteDisabled] = useState(true);
     const [touchedFields, setTouchedFields] = useState({});
-    const { register: registerUser, loading } = useAuth();
+    const { login, loading } = useAuth();
 
     const {
         register,
@@ -19,11 +18,6 @@ const RegisterForm = ({ onSwitchToLogin }) => {
         watch,
         trigger
     } = useForm();
-
-    const password = watch('password');
-    //const username = watch('username');
-    //const email = watch('email');
-    //const confirmPassword = watch('confirmPassword');
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -47,7 +41,8 @@ const RegisterForm = ({ onSwitchToLogin }) => {
     const onSubmit = async (data) => {
         setServerError('');
         setIsSubmitting(true);
-        const result = await registerUser(data);
+
+        const result = await login(data);
 
         if (!result.success) {
             setServerError(result.error);
@@ -55,25 +50,13 @@ const RegisterForm = ({ onSwitchToLogin }) => {
         setIsSubmitting(false);
     };
 
-    const getPasswordStrength = (pass) => {
-        if (!pass) return 0;
-        let strength = 0;
-        if (pass.length >= 6) strength += 20;
-        if (pass.match(/[a-z]+/)) strength += 20;
-        if (pass.match(/[A-Z]+/)) strength += 20;
-        if (pass.match(/[0-9]+/)) strength += 20;
-        if (pass.match(/[!@#$%^&*(),.?":{}|<>]+/)) strength += 20;
-        return strength;
-    };
-
-    const passwordStrength = getPasswordStrength(password);
-
     // Функции для проверки, показывать ли сообщения
     const shouldShowError = (fieldName) => touchedFields[fieldName] && errors[fieldName];
     const shouldShowSuccess = (fieldName) => touchedFields[fieldName] && !errors[fieldName] && watch(fieldName);
 
     return (
         <div className="auth-container">
+            {/* Анимированный фон */}
             <div className="animated-background">
                 <div className="floating-shape shape-1"></div>
                 <div className="floating-shape shape-2"></div>
@@ -89,10 +72,10 @@ const RegisterForm = ({ onSwitchToLogin }) => {
                             <span className="logo-text">TaskFlow</span>
                         </div>
                         <h2 className="card-title">
-                            Create Account
+                            Welcome Back
                         </h2>
                         <p className="card-subtitle">
-                            Join us to start managing your tasks
+                            Sign in to continue managing your tasks
                         </p>
                     </div>
 
@@ -103,39 +86,6 @@ const RegisterForm = ({ onSwitchToLogin }) => {
                                 <span>{serverError}</span>
                             </div>
                         )}
-
-                        <div className="input-group">
-                            <div className="input-wrapper">
-                                <User className="input-icon" />
-                                <input
-                                    {...register('username', {
-                                        required: 'Username is required',
-                                        minLength: {
-                                            value: 3,
-                                            message: 'Username must be at least 3 characters'
-                                        }
-                                    })}
-                                    placeholder=" "
-                                    className="input-field"
-                                    onBlur={() => handleBlur('username')}
-                                    readOnly={isAutoCompleteDisabled}
-                                    onFocus={handleFocus}
-                                />
-                                <label className="input-label">Username</label>
-                            </div>
-                            {shouldShowError('username') && (
-                                <span className="error-message">
-                                    <X size={14} />
-                                    {errors.username.message}
-                                </span>
-                            )}
-                            {shouldShowSuccess('username') && (
-                                <span className="success-message">
-                                    <Check size={14} />
-                                    Username is available
-                                </span>
-                            )}
-                        </div>
 
                         <div className="input-group">
                             <div className="input-wrapper">
@@ -166,7 +116,7 @@ const RegisterForm = ({ onSwitchToLogin }) => {
                             {shouldShowSuccess('email') && (
                                 <span className="success-message">
                                     <Check size={14} />
-                                    Email is valid
+                                    Email looks good
                                 </span>
                             )}
                         </div>
@@ -198,17 +148,6 @@ const RegisterForm = ({ onSwitchToLogin }) => {
                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>
                             </div>
-
-                            {password && (
-                                <div className="password-strength">
-                                    <div
-                                        className="strength-bar"
-                                        style={{ width: `${passwordStrength}%` }}
-                                        data-strength={passwordStrength}
-                                    ></div>
-                                </div>
-                            )}
-
                             {shouldShowError('password') && (
                                 <span className="error-message">
                                     <X size={14} />
@@ -218,46 +157,7 @@ const RegisterForm = ({ onSwitchToLogin }) => {
                             {shouldShowSuccess('password') && (
                                 <span className="success-message">
                                     <Check size={14} />
-                                    Password strength: {passwordStrength >= 60 ? 'Strong' : passwordStrength >= 40 ? 'Medium' : 'Weak'}
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="input-group">
-                            <div className="input-wrapper">
-                                <Lock className="input-icon" />
-                                <input
-                                    type={showConfirmPassword ? 'text' : 'password'}
-                                    {...register('confirmPassword', {
-                                        required: 'Please confirm your password',
-                                        validate: value =>
-                                            value === password || 'Passwords do not match'
-                                    })}
-                                    placeholder=" "
-                                    className="input-field"
-                                    onBlur={() => handleBlur('confirmPassword')}
-                                    readOnly={isAutoCompleteDisabled}
-                                    onFocus={handleFocus}
-                                />
-                                <label className="input-label">Confirm Password</label>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="password-toggle"
-                                >
-                                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                            </div>
-                            {shouldShowError('confirmPassword') && (
-                                <span className="error-message">
-                                    <X size={14} />
-                                    {errors.confirmPassword.message}
-                                </span>
-                            )}
-                            {shouldShowSuccess('confirmPassword') && (
-                                <span className="success-message">
-                                    <Check size={14} />
-                                    Passwords match
+                                    Password looks good
                                 </span>
                             )}
                         </div>
@@ -270,22 +170,22 @@ const RegisterForm = ({ onSwitchToLogin }) => {
                             {loading || isSubmitting ? (
                                 <>
                                     <div className="loading-spinner"></div>
-                                    Creating Account...
+                                    Signing In...
                                 </>
                             ) : (
-                                'Create Account'
+                                'Sign In'
                             )}
                         </button>
                     </form>
 
                     <div className="card-footer">
                         <p>
-                            Already have an account?{' '}
+                            Don't have an account?{' '}
                             <button
-                                onClick={onSwitchToLogin}
+                                onClick={onSwitchToRegister}
                                 className="text-link"
                             >
-                                Sign In
+                                Create Account
                             </button>
                         </p>
                     </div>
@@ -295,4 +195,4 @@ const RegisterForm = ({ onSwitchToLogin }) => {
     );
 };
 
-export default RegisterForm;
+export default LoginForm;

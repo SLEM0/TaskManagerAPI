@@ -1,4 +1,4 @@
-/* Modern Styling */
+
 * {
     margin: 0;
     padding: 0;
@@ -500,4 +500,24 @@ body, html {
     .input-field {
         padding: 16px 48px 16px 44px;
     }
+}
+
+
+/* Стили для дашборда */
+.dashboard-content {
+    text-align: center;
+}
+
+/* Адаптивность для дашборда */
+@media (max-width: 480px) {
+    .dashboard-content {
+        padding: 16px;
+    }
+}
+
+
+
+.app {
+    min-height: 100vh;
+    position: relative;
 }
