@@ -8,4 +8,5 @@ public class User
     public byte[] PasswordHash { get; set; }
     public byte[] PasswordSalt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string AvatarUrl { get; set; } = "/avatars/default-avatar.png";
 }

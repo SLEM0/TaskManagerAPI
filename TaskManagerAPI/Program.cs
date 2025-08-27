@@ -83,8 +83,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseStaticFiles(); //
+
 app.UseRateLimiter();
-app.UseRouting();        //?
+app.UseRouting();        //
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();

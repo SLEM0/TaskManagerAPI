@@ -12,7 +12,7 @@ using TaskManagerAPI.Infrastructure.Data;
 namespace TaskManagerAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250826142930_InitialCreate")]
+    [Migration("20250827165416_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -274,6 +274,10 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AvatarUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");

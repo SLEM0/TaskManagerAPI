@@ -22,7 +22,8 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     Email = table.Column<string>(type: "text", nullable: false),
                     PasswordHash = table.Column<byte[]>(type: "bytea", nullable: false),
                     PasswordSalt = table.Column<byte[]>(type: "bytea", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    AvatarUrl = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
