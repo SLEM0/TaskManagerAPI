@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using TaskManagerAPI.Application.Interfaces;
 
@@ -8,6 +9,7 @@ public class UserContext : IUserContext
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
     private int? _cachedUserId;
+    private string? _cachedUserName;
 
     public UserContext(IHttpContextAccessor httpContextAccessor)
     {
@@ -25,5 +27,20 @@ public class UserContext : IUserContext
 
         _cachedUserId = userId;
         return userId;
+    }
+
+    public string GetCurrentUserName()
+    {
+        if (_cachedUserName != null)
+            return _cachedUserName;
+
+        // Используйте JwtRegisteredClaimNames.Name вместо ClaimTypes.Name
+        var usernameClaim = _httpContextAccessor.HttpContext?.User.FindFirst(JwtRegisteredClaimNames.Name);
+
+        if (usernameClaim == null || string.IsNullOrEmpty(usernameClaim.Value))
+            throw new UnauthorizedAccessException("Invalid username in token");
+
+        _cachedUserName = usernameClaim.Value;
+        return _cachedUserName;
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using TaskManagerAPI.Application.Dtos.Attachment;
 using TaskManagerAPI.Application.Dtos.Comment;
 using TaskManagerAPI.Application.Dtos.Label;
 using TaskManagerAPI.Application.Dtos.Member;
@@ -58,12 +59,19 @@ public class TaskService : ITaskService
             CreatedAt = DateTime.UtcNow,
             Order = lastOrder + 1,
             Labels = new List<Label>(),
-            Members = new List<BoardUser>(),
-            Comments = new List<Comment>()
+            Members = new List<Member>(),
+            Comments = new List<Comment>(),
+            Attachments = new List<Attachment>()
         };
 
         _context.Tasks.Add(task);
         await _context.SaveChangesAsync();
+
+        await _commentService.SystemLogActionAsync(
+            task.Id,
+            SystemMessages.CreatedTask(_userContext.GetCurrentUserName()),
+            _userContext.GetCurrentUserId()
+        );
 
         return new TaskResponseDto
         {
@@ -77,7 +85,8 @@ public class TaskService : ITaskService
             Order = task.Order,
             Labels = new List<LabelResponseDto>(),
             Members = new List<MemberResponseDto>(),
-            Comments = new List<CommentResponseDto>()
+            Comments = new List<CommentResponseDto>(),
+            Attachments = new List<AttachmentResponseDto>()
         };
     }
 
@@ -91,6 +100,7 @@ public class TaskService : ITaskService
             .ThenInclude(tl => tl.Board)
             .Include(t => t.Comments)
                 .ThenInclude(c => c.Author)
+            .Include(t => t.Attachments)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -134,7 +144,18 @@ public class TaskService : ITaskService
                 CreatedAt = comment.CreatedAt,
                 TaskId = comment.TaskId,
                 AuthorId = comment.AuthorId,
-                AuthorName = comment.Author.Username
+                AuthorName = comment.Author.Username,
+                IsSystemLog = comment.IsSystemLog
+            }),
+            Attachments = task.Attachments.Select(attachment => new AttachmentResponseDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType,
+                UploadedAt = attachment.UploadedAt,
+                UploadedById = attachment.UploadedById,
+                FileUrl = $"/attachments/{attachment.FilePath}"
             })
         };
     }
@@ -148,6 +169,7 @@ public class TaskService : ITaskService
                 .ThenInclude(m => m.User)
             .Include(t => t.Comments)
                 .ThenInclude(c => c.Author)
+            .Include(t => t.Attachments)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -156,30 +178,31 @@ public class TaskService : ITaskService
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         var changes = new List<string>();
+        var userName = _userContext.GetCurrentUserName();
 
         if (task.Title != taskDto.Title)
         {
-            changes.Add(SystemMessages.ChangedTitle(taskDto.Title));
+            changes.Add(SystemMessages.ChangedTitle(userName, taskDto.Title));
             task.Title = taskDto.Title;
         }
 
         if (task.Description != taskDto.Description)
         {
-            changes.Add(SystemMessages.ChangedDescription());
+            changes.Add(SystemMessages.ChangedDescription(userName));
             task.Description = taskDto.Description;
         }
 
         if (task.DueDate != taskDto.DueDate)
         {
-            changes.Add(SystemMessages.ChangedDueDate(taskDto.DueDate));
+            changes.Add(SystemMessages.ChangedDueDate(userName, taskDto.DueDate));
             task.DueDate = taskDto.DueDate;
         }
 
         if (taskDto.IsCompleted.HasValue && task.IsCompleted != taskDto.IsCompleted)
         {
             changes.Add(taskDto.IsCompleted.Value ?
-                SystemMessages.MarkedAsCompleted() :
-                SystemMessages.MarkedAsIncomplete());
+                SystemMessages.MarkedAsCompleted(userName) :
+                SystemMessages.MarkedAsIncomplete(userName));
             task.IsCompleted = taskDto.IsCompleted.Value;
         }
 
@@ -229,7 +252,18 @@ public class TaskService : ITaskService
                 CreatedAt = comment.CreatedAt,
                 TaskId = comment.TaskId,
                 AuthorId = comment.AuthorId,
-                AuthorName = comment.Author.Username
+                AuthorName = comment.Author.Username,
+                IsSystemLog = comment.IsSystemLog
+            }),
+            Attachments = task.Attachments.Select(attachment => new AttachmentResponseDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType,
+                UploadedAt = attachment.UploadedAt,
+                UploadedById = attachment.UploadedById,
+                FileUrl = $"/attachments/{attachment.FilePath}"
             })
         };
     }
@@ -257,6 +291,7 @@ public class TaskService : ITaskService
                 .ThenInclude(m => m.User)
             .Include(t => t.Comments)
                 .ThenInclude(c => c.Author)
+            .Include(t => t.Attachments)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -316,7 +351,7 @@ public class TaskService : ITaskService
             var newList = await _context.TaskLists.FindAsync(moveDto.NewListId);
             await _commentService.SystemLogActionAsync(
                 taskId,
-                SystemMessages.MovedToList(newList.Title),
+                SystemMessages.MovedToList(_userContext.GetCurrentUserName(), newList.Title),
                 _userContext.GetCurrentUserId()
             );
         }
@@ -358,12 +393,23 @@ public class TaskService : ITaskService
                 CreatedAt = comment.CreatedAt,
                 TaskId = comment.TaskId,
                 AuthorId = comment.AuthorId,
-                AuthorName = comment.Author.Username
+                AuthorName = comment.Author.Username,
+                IsSystemLog = comment.IsSystemLog
+            }),
+            Attachments = task.Attachments.Select(attachment => new AttachmentResponseDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType,
+                UploadedAt = attachment.UploadedAt,
+                UploadedById = attachment.UploadedById,
+                FileUrl = $"/attachments/{attachment.FilePath}"
             })
         };
     }
 
-    public async Task<TaskResponseDto> AddLabelToTaskAsync(int taskId, AddLabelToTaskRequestDto addLabelDto)
+    public async Task<TaskResponseDto> AddLabelToTaskAsync(int taskId, AddLabelRequestDto addLabelDto)
     {
         var task = await _context.Tasks
             .Include(t => t.Labels)
@@ -372,6 +418,7 @@ public class TaskService : ITaskService
             .Include(t => t.Comments)
                 .ThenInclude(c => c.Author)
             .Include(t => t.TaskList)
+            .Include(t => t.Attachments)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -389,7 +436,7 @@ public class TaskService : ITaskService
 
         await _commentService.SystemLogActionAsync(
             taskId,
-            SystemMessages.AddedLabel(label.Name),
+            SystemMessages.AddedLabel(_userContext.GetCurrentUserName(), label.Name),
             _userContext.GetCurrentUserId()
         );
 
@@ -430,7 +477,18 @@ public class TaskService : ITaskService
                 CreatedAt = comment.CreatedAt,
                 TaskId = comment.TaskId,
                 AuthorId = comment.AuthorId,
-                AuthorName = comment.Author.Username
+                AuthorName = comment.Author.Username,
+                IsSystemLog = comment.IsSystemLog
+            }),
+            Attachments = task.Attachments.Select(attachment => new AttachmentResponseDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType,
+                UploadedAt = attachment.UploadedAt,
+                UploadedById = attachment.UploadedById,
+                FileUrl = $"/attachments/{attachment.FilePath}"
             })
         };
     }
@@ -444,6 +502,7 @@ public class TaskService : ITaskService
             .Include(t => t.Comments)
                 .ThenInclude(c => c.Author)
             .Include(t => t.TaskList)
+            .Include(t => t.Attachments)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -458,7 +517,7 @@ public class TaskService : ITaskService
 
         await _commentService.SystemLogActionAsync(
             taskId,
-            SystemMessages.RemovedLabel(label.Name),
+            SystemMessages.RemovedLabel(_userContext.GetCurrentUserName(), label.Name),
             _userContext.GetCurrentUserId()
         );
 
@@ -499,12 +558,23 @@ public class TaskService : ITaskService
                 CreatedAt = comment.CreatedAt,
                 TaskId = comment.TaskId,
                 AuthorId = comment.AuthorId,
-                AuthorName = comment.Author.Username
+                AuthorName = comment.Author.Username,
+                IsSystemLog = comment.IsSystemLog
+            }),
+            Attachments = task.Attachments.Select(attachment => new AttachmentResponseDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType,
+                UploadedAt = attachment.UploadedAt,
+                UploadedById = attachment.UploadedById,
+                FileUrl = $"/attachments/{attachment.FilePath}"
             })
         };
     }
 
-    public async Task<TaskResponseDto> AssignTaskAsync(int taskId, MemberRequestDto memberDto)
+    public async Task<TaskResponseDto> AssignTaskAsync(int taskId, int userId)
     {
         var task = await _context.Tasks
             .Include(t => t.Labels)
@@ -512,6 +582,7 @@ public class TaskService : ITaskService
                 .ThenInclude(a => a.User)
             .Include(t => t.Comments)
                 .ThenInclude(c => c.Author)
+            .Include(t => t.Attachments)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -522,15 +593,15 @@ public class TaskService : ITaskService
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         // Находим участника доски
-        var boardUser = await _context.BoardUsers
+        var boardUser = await _context.Members
             .Include(bu => bu.User)
-            .FirstOrDefaultAsync(bu => bu.Id == memberDto.UserId && bu.BoardId == taskList.BoardId);
+            .FirstOrDefaultAsync(bu => bu.UserId == userId && bu.BoardId == taskList.BoardId);
 
         if (boardUser == null)
             throw new KeyNotFoundException("Board member not found or does not belong to this board");
 
         // Проверяем что участник уже не назначен на задачу
-        if (task.Members.Any(a => a.Id == memberDto.UserId))
+        if (task.Members.Any(a => a.Id == userId))
             throw new InvalidOperationException("User is already assigned to this task");
 
         // Добавляем участника
@@ -538,7 +609,7 @@ public class TaskService : ITaskService
 
         await _commentService.SystemLogActionAsync(
             taskId,
-            SystemMessages.AssignedUser(boardUser.User.Username),
+            SystemMessages.AssignedUser(_userContext.GetCurrentUserName(), boardUser.User.Username),
             _userContext.GetCurrentUserId()
         );
 
@@ -580,12 +651,23 @@ public class TaskService : ITaskService
                 CreatedAt = comment.CreatedAt,
                 TaskId = comment.TaskId,
                 AuthorId = comment.AuthorId,
-                AuthorName = comment.Author.Username
+                AuthorName = comment.Author.Username,
+                IsSystemLog = comment.IsSystemLog
+            }),
+            Attachments = task.Attachments.Select(attachment => new AttachmentResponseDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType,
+                UploadedAt = attachment.UploadedAt,
+                UploadedById = attachment.UploadedById,
+                FileUrl = $"/attachments/{attachment.FilePath}"
             })
         };
     }
 
-    public async Task<TaskResponseDto> UnassignTaskAsync(int taskId, MemberRequestDto memberDto)
+    public async Task<TaskResponseDto> UnassignTaskAsync(int taskId, int userId)
     {
         var task = await _context.Tasks
             .Include(t => t.Labels)
@@ -593,6 +675,7 @@ public class TaskService : ITaskService
                 .ThenInclude(a => a.User)
             .Include(t => t.Comments)
                 .ThenInclude(c => c.Author)
+            .Include(t => t.Attachments)
             .FirstOrDefaultAsync(t => t.Id == taskId);
 
         if (task == null) throw new KeyNotFoundException("Task not found");
@@ -603,7 +686,7 @@ public class TaskService : ITaskService
         if (!hasAccess) throw new UnauthorizedAccessException();
 
         // Находим участника для удаления
-        var member = task.Members.FirstOrDefault(a => a.Id == memberDto.UserId);
+        var member = task.Members.FirstOrDefault(a => a.UserId == userId);
         if (member == null) throw new KeyNotFoundException("Assignee not found");
 
         // Удаляем участника
@@ -611,7 +694,7 @@ public class TaskService : ITaskService
 
         await _commentService.SystemLogActionAsync(
             taskId,
-            SystemMessages.UnassignedUser(member.User.Username),
+            SystemMessages.UnassignedUser(_userContext.GetCurrentUserName(), member.User.Username),
             _userContext.GetCurrentUserId()
         );
 
@@ -653,7 +736,18 @@ public class TaskService : ITaskService
                 CreatedAt = comment.CreatedAt,
                 TaskId = comment.TaskId,
                 AuthorId = comment.AuthorId,
-                AuthorName = comment.Author.Username
+                AuthorName = comment.Author.Username,
+                IsSystemLog = comment.IsSystemLog
+            }),
+            Attachments = task.Attachments.Select(attachment => new AttachmentResponseDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType,
+                UploadedAt = attachment.UploadedAt,
+                UploadedById = attachment.UploadedById,
+                FileUrl = $"/attachments/{attachment.FilePath}"
             })
         };
     }

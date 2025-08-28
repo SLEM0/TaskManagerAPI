@@ -2,7 +2,7 @@
 
 namespace TaskManagerAPI.Application.Dtos.Task;
 
-public class AddLabelToTaskRequestDto
+public class AddLabelRequestDto
 {
     [Required]
     [Range(1, int.MaxValue)]

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TaskManagerAPI.Infrastructure.Data;
@@ -11,9 +12,11 @@ using TaskManagerAPI.Infrastructure.Data;
 namespace TaskManagerAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250828120205_AddAttachments")]
+    partial class AddAttachments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,6 +24,21 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("BoardUserTask", b =>
+                {
+                    b.Property<int>("MembersId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MembersId", "TaskId");
+
+                    b.HasIndex("TaskId");
+
+                    b.ToTable("TaskAssignees", (string)null);
+                });
 
             modelBuilder.Entity("LabelTask", b =>
                 {
@@ -35,21 +53,6 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.HasIndex("TaskId");
 
                     b.ToTable("TaskLabels", (string)null);
-                });
-
-            modelBuilder.Entity("MemberTask", b =>
-                {
-                    b.Property<int>("MembersId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TaskId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("MembersId", "TaskId");
-
-                    b.HasIndex("TaskId");
-
-                    b.ToTable("TaskAssignees", (string)null);
                 });
 
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Attachment", b =>
@@ -122,6 +125,36 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.ToTable("Boards");
                 });
 
+            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.BoardUser", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("BoardId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("BoardId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("BoardUsers");
+                });
+
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Comment", b =>
                 {
                     b.Property<int>("Id")
@@ -182,36 +215,6 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.HasIndex("BoardId");
 
                     b.ToTable("Labels");
-                });
-
-            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Member", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("AddedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("BoardId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("BoardId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("Members");
                 });
 
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.RefreshToken", b =>
@@ -344,11 +347,11 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("LabelTask", b =>
+            modelBuilder.Entity("BoardUserTask", b =>
                 {
-                    b.HasOne("TaskManagerAPI.Domain.Entities.Label", null)
+                    b.HasOne("TaskManagerAPI.Domain.Entities.BoardUser", null)
                         .WithMany()
-                        .HasForeignKey("LabelsId")
+                        .HasForeignKey("MembersId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -359,11 +362,11 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("MemberTask", b =>
+            modelBuilder.Entity("LabelTask", b =>
                 {
-                    b.HasOne("TaskManagerAPI.Domain.Entities.Member", null)
+                    b.HasOne("TaskManagerAPI.Domain.Entities.Label", null)
                         .WithMany()
-                        .HasForeignKey("MembersId")
+                        .HasForeignKey("LabelsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -404,6 +407,25 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                     b.Navigation("Owner");
                 });
 
+            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.BoardUser", b =>
+                {
+                    b.HasOne("TaskManagerAPI.Domain.Entities.Board", "Board")
+                        .WithMany("BoardUsers")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TaskManagerAPI.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Comment", b =>
                 {
                     b.HasOne("TaskManagerAPI.Domain.Entities.User", "Author")
@@ -432,25 +454,6 @@ namespace TaskManagerAPI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Board");
-                });
-
-            modelBuilder.Entity("TaskManagerAPI.Domain.Entities.Member", b =>
-                {
-                    b.HasOne("TaskManagerAPI.Domain.Entities.Board", "Board")
-                        .WithMany("BoardUsers")
-                        .HasForeignKey("BoardId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TaskManagerAPI.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Board");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("TaskManagerAPI.Domain.Entities.RefreshToken", b =>

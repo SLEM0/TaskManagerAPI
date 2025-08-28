@@ -87,24 +87,30 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> RefreshTokenAsync(string refreshToken)
     {
-        // Поиск валидного refresh token
+        var currentTime = DateTime.UtcNow;
+
+        // Сначала находим токен без включения User
         var token = await _context.RefreshTokens
-            .Include(rt => rt.User)
-            .FirstOrDefaultAsync(rt => rt.Token == refreshToken && !rt.IsExpired);
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.Expires > currentTime);
 
         if (token == null)
             throw new UnauthorizedAccessException("Invalid refresh token");
+
+        // Затем загружаем пользователя отдельно
+        var user = await _context.Users.FindAsync(token.UserId);
+        if (user == null)
+            throw new UnauthorizedAccessException("User not found");
 
         // Удаление использованного токена
         _context.RefreshTokens.Remove(token);
 
         // Генерация новой пары токенов
-        var (accessToken, newRefreshToken) = _tokenService.GenerateTokenPair(token.User);
+        var (accessToken, newRefreshToken) = _tokenService.GenerateTokenPair(user);
 
         // Сохранение нового refresh token
         _context.RefreshTokens.Add(new RefreshToken
         {
-            UserId = token.User.Id,
+            UserId = user.Id,
             Token = newRefreshToken,
             Expires = DateTime.UtcNow.AddDays(7),
             Created = DateTime.UtcNow

@@ -93,7 +93,7 @@ public class TaskListController : ControllerBase
     }
 
     [HttpPost("{listId}/tasks")]
-    public async Task<ActionResult<ShortTaskResponseDto>> CreateTask(int listId, [FromBody] TaskRequestDto taskDto)
+    public async Task<ActionResult<TaskResponseDto>> CreateTask(int listId, [FromBody] TaskRequestDto taskDto)
     {
         try
         {

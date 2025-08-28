@@ -91,7 +91,7 @@ public class TaskController : ControllerBase
     }
 
     [HttpPost("{taskId}/labels")]
-    public async Task<ActionResult<TaskResponseDto>> AddLabelToTask(int taskId, [FromBody] AddLabelToTaskRequestDto addLabelDto)
+    public async Task<ActionResult<TaskResponseDto>> AddLabelToTask(int taskId, [FromBody] AddLabelRequestDto addLabelDto)
     {
         try
         {
@@ -112,12 +112,12 @@ public class TaskController : ControllerBase
         }
     }
 
-    [HttpDelete("{taskId}/labels")]
-    public async Task<ActionResult<TaskResponseDto>> RemoveLabelFromTask(int taskId, [FromBody] RemoveLabelRequestDto removeLabelDto)
+    [HttpDelete("{taskId}/labels/{labelId}")]
+    public async Task<ActionResult<TaskResponseDto>> RemoveLabelFromTask(int taskId, int labelId)
     {
         try
         {
-            var task = await _taskService.RemoveLabelFromTaskAsync(taskId, removeLabelDto.LabelId);
+            var task = await _taskService.RemoveLabelFromTaskAsync(taskId, labelId);
             return Ok(task);
         }
         catch (KeyNotFoundException ex)
@@ -130,13 +130,12 @@ public class TaskController : ControllerBase
         }
     }
 
-    [HttpPost("{taskId}/assignees")]
-    public async Task<ActionResult<TaskResponseDto>> AssignTask(
-        int taskId, [FromBody] MemberRequestDto memberDto)
+    [HttpPost("{taskId}/assignees/{userId}")]
+    public async Task<ActionResult<TaskResponseDto>> AssignTask(int taskId, int userId)
     {
         try
         {
-            var task = await _taskService.AssignTaskAsync(taskId, memberDto);
+            var task = await _taskService.AssignTaskAsync(taskId, userId);
             return Ok(task);
         }
         catch (KeyNotFoundException ex)
@@ -153,13 +152,12 @@ public class TaskController : ControllerBase
         }
     }
 
-    [HttpDelete("{taskId}/assignees")]
-    public async Task<ActionResult<TaskResponseDto>> UnassignTask(
-        int taskId, [FromBody] MemberRequestDto memberDto)
+    [HttpDelete("{taskId}/assignees/{userId}")]
+    public async Task<ActionResult<TaskResponseDto>> UnassignTask(int taskId, int userId)
     {
         try
         {
-            var task = await _taskService.UnassignTaskAsync(taskId, memberDto);
+            var task = await _taskService.UnassignTaskAsync(taskId, userId);
             return Ok(task);
         }
         catch (KeyNotFoundException ex)

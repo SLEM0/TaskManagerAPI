@@ -110,7 +110,7 @@ public class BoardController : ControllerBase
     }
 
     [HttpPost("{boardId}/members")]
-    public async Task<ActionResult<MemberResponseDto>> AddBoardMember(int boardId, [FromBody] AddMemberRequestDto dto)
+    public async Task<ActionResult<MemberResponseDto>> AddBoardMember(int boardId, [FromBody] MemberRequestDto dto)
     {
         try
         {
@@ -131,13 +131,13 @@ public class BoardController : ControllerBase
         }
     }
 
-    [HttpDelete("{boardId}/members")]
-    public async Task<IActionResult> RemoveBoardMember(int boardId, [FromBody] MemberRequestDto removeMemberDto)
+    [HttpDelete("{boardId}/members/{userId}")]
+    public async Task<IActionResult> RemoveBoardMember(int boardId, int userId)
     {
         try
         {
             var requestingUserId = _userContext.GetCurrentUserId();
-            await _boardService.RemoveBoardMemberAsync(boardId, removeMemberDto.UserId, requestingUserId);
+            await _boardService.RemoveBoardMemberAsync(boardId, userId, requestingUserId);
             return NoContent();
         }
         catch (UnauthorizedAccessException)

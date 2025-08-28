@@ -12,9 +12,10 @@ public class AppDbContext : DbContext
     public DbSet<TaskList> TaskLists { get; set; }
     public DbSet<Domain.Entities.Task> Tasks { get; set; }
     public DbSet<Label> Labels { get; set; }
-    public DbSet<BoardUser> BoardUsers { get; set; }
+    public DbSet<Member> Members { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Comment> Comments { get; set; }
+    public DbSet<Attachment> Attachments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,8 +41,14 @@ public class AppDbContext : DbContext
             .HasForeignKey(c => c.AuthorId);
 
         // Уникальный составной ключ (чтобы пользователь не мог быть добавлен в доску дважды)
-        modelBuilder.Entity<BoardUser>()
+        modelBuilder.Entity<Member>()
             .HasIndex(bu => new { bu.BoardId, bu.UserId })
             .IsUnique();
+
+        modelBuilder.Entity<RefreshToken>()
+        .HasOne(rt => rt.User)
+        .WithMany() // Если у User нет коллекции RefreshTokens
+        .HasForeignKey(rt => rt.UserId)
+        .OnDelete(DeleteBehavior.Cascade);
     }
 }

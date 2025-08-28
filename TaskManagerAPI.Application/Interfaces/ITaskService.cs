@@ -10,8 +10,8 @@ public interface ITaskService
     Task<TaskResponseDto> UpdateTaskAsync(int taskId, TaskRequestDto taskDto);
     Task DeleteTaskAsync(int taskId);
     Task<TaskResponseDto> MoveTaskAsync(int taskId, MoveTaskRequestDto moveDto);
-    Task<TaskResponseDto> AddLabelToTaskAsync(int taskId, AddLabelToTaskRequestDto addLabelDto);
+    Task<TaskResponseDto> AddLabelToTaskAsync(int taskId, AddLabelRequestDto addLabelDto);
     Task<TaskResponseDto> RemoveLabelFromTaskAsync(int taskId, int labelId);
-    Task<TaskResponseDto> AssignTaskAsync(int taskId, MemberRequestDto memberDto);
-    Task<TaskResponseDto> UnassignTaskAsync(int taskId, MemberRequestDto memberDto);
+    Task<TaskResponseDto> AssignTaskAsync(int taskId, int userId);
+    Task<TaskResponseDto> UnassignTaskAsync(int taskId, int userId);
 }

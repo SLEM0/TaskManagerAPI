@@ -14,6 +14,7 @@ public class Task
     public int TaskListId { get; set; }  // ID списка
     public TaskList TaskList { get; set; }
     public List<Label> Labels { get; set; } = new();  // Метки задачи
-    public List<BoardUser> Members { get; set; } = new(); // ← Используем BoardUser!
+    public List<Member> Members { get; set; } = new(); // ← Используем BoardUser!
     public List<Comment> Comments { get; set; } = new(); // ← Добавляем комментарии
+    public List<Attachment> Attachments { get; set; } = new();
 }

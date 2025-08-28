@@ -1,5 +1,4 @@
-﻿using TaskManagerAPI.Application.Dtos.Task;
-using TaskManagerAPI.Application.Dtos.TaskList;
+﻿using TaskManagerAPI.Application.Dtos.TaskList;
 
 namespace TaskManagerAPI.Application.Interfaces;
 

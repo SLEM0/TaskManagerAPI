@@ -2,7 +2,7 @@
 
 namespace TaskManagerAPI.Domain.Entities;
 
-public class BoardUser
+public class Member
 {
     public int Id { get; set; }
 

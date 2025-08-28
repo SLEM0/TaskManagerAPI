@@ -6,20 +6,19 @@ namespace TaskManagerAPI.Controllers;
 
 [ApiController]
 [Route("api/tasks/{taskId}/comments")]
-public class CommentsController : ControllerBase
+public class CommentController : ControllerBase
 {
     private readonly ICommentService _commentService;
     private readonly IUserContext _userContext;
 
-    public CommentsController(ICommentService commentService, IUserContext userContext)
+    public CommentController(ICommentService commentService, IUserContext userContext)
     {
         _commentService = commentService;
         _userContext = userContext;
     }
 
     [HttpPost]
-    public async Task<ActionResult<CommentResponseDto>> AddComment(
-        int taskId, [FromBody] CreateCommentRequestDto dto)
+    public async Task<ActionResult<CommentResponseDto>> AddComment(int taskId, [FromBody] CreateCommentRequestDto dto)
     {
         try
         {

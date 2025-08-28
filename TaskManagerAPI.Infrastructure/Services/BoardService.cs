@@ -39,14 +39,14 @@ public class BoardService : IBoardService
         _context.Boards.Add(board);
         await _context.SaveChangesAsync();
 
-        var boardUser = new BoardUser
+        var boardUser = new Member
         {
             BoardId = board.Id,
             UserId = userId,
             Role = BoardRole.Owner,
             AddedAt = DateTime.UtcNow
         };
-        _context.BoardUsers.Add(boardUser);
+        _context.Members.Add(boardUser);
         await _context.SaveChangesAsync();
 
         return new BoardResponseDto
@@ -297,7 +297,7 @@ public class BoardService : IBoardService
         await _context.SaveChangesAsync();
     }
 
-    public async Task<MemberResponseDto> AddBoardMemberAsync(int boardId, AddMemberRequestDto dto)
+    public async Task<MemberResponseDto> AddBoardMemberAsync(int boardId, MemberRequestDto dto)
     {
         var (hasAccess, _) = await _authService.CheckBoardAccessAsync(boardId, BoardRole.Owner);
         if (!hasAccess) throw new UnauthorizedAccessException();
@@ -306,7 +306,7 @@ public class BoardService : IBoardService
             .FirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email.ToLower());
         if (user == null) throw new KeyNotFoundException("User not found");
 
-        var alreadyMember = await _context.BoardUsers
+        var alreadyMember = await _context.Members
             .AnyAsync(bu => bu.BoardId == boardId && bu.UserId == user.Id);
         if (alreadyMember) throw new InvalidOperationException("User is already a member");
 
@@ -314,7 +314,7 @@ public class BoardService : IBoardService
         if (board == null) throw new KeyNotFoundException("Board not found");
         if (board.OwnerId == user.Id) throw new InvalidOperationException("User is the board owner");
 
-        var boardUser = new BoardUser
+        var boardUser = new Member
         {
             BoardId = boardId,
             UserId = user.Id,
@@ -322,7 +322,7 @@ public class BoardService : IBoardService
             AddedAt = DateTime.UtcNow
         };
 
-        _context.BoardUsers.Add(boardUser);
+        _context.Members.Add(boardUser);
         await _context.SaveChangesAsync();
 
         return new MemberResponseDto
@@ -342,13 +342,13 @@ public class BoardService : IBoardService
         var (hasAccess, _) = await _authService.CheckBoardAccessAsync(boardId, BoardRole.Owner);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
-        var boardUser = await _context.BoardUsers
+        var boardUser = await _context.Members
             .FirstOrDefaultAsync(bu => bu.BoardId == boardId && bu.UserId == userId);
 
         if (boardUser == null) throw new KeyNotFoundException("Member not found");
         if (boardUser.UserId == requestingUserId) throw new InvalidOperationException("Cannot remove yourself");
 
-        _context.BoardUsers.Remove(boardUser);
+        _context.Members.Remove(boardUser);
         await _context.SaveChangesAsync();
     }
 

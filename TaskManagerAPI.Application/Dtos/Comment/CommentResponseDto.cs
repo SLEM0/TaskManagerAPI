@@ -8,4 +8,5 @@ public class CommentResponseDto
     public int TaskId { get; set; }
     public int AuthorId { get; set; }
     public string AuthorName { get; set; }
+    public bool IsSystemLog { get; set; }
 }

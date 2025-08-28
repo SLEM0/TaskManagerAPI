@@ -27,7 +27,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IUserContext, UserContext>();
         services.AddScoped<IUserService, UserService>();
-
+        services.AddScoped<IAttachmentService, AttachmentService>();
         return services;
     }
 }

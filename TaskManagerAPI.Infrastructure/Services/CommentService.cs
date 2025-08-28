@@ -36,7 +36,8 @@ public class CommentService : ICommentService
             Content = dto.Content,
             TaskId = taskId,
             AuthorId = authorId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsSystemLog = false
         };
 
         _context.Comments.Add(comment);
@@ -49,7 +50,8 @@ public class CommentService : ICommentService
             CreatedAt = comment.CreatedAt,
             TaskId = comment.TaskId,
             AuthorId = comment.AuthorId,
-            AuthorName = author.Username
+            AuthorName = author.Username,
+            IsSystemLog = comment.IsSystemLog
         };
     }
 
@@ -57,10 +59,11 @@ public class CommentService : ICommentService
     {
         var comment = new Comment
         {
-            Content = $"[System] {action}",
+            Content = action, // Убираем [System] префикс, так как сообщения теперь понятные
             TaskId = taskId,
             AuthorId = userId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsSystemLog = true // Добавляем флаг что это системное сообщение
         };
 
         _context.Comments.Add(comment);

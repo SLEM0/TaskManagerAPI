@@ -3,4 +3,5 @@
 public interface IUserContext
 {
     int GetCurrentUserId();
+    string GetCurrentUserName();
 }
