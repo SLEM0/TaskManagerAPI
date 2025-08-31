@@ -409,7 +409,7 @@ public class TaskService : ITaskService
         };
     }
 
-    public async Task<TaskResponseDto> AddLabelToTaskAsync(int taskId, AddLabelRequestDto addLabelDto)
+    public async Task<TaskResponseDto> AddLabelToTaskAsync(int taskId, int labelId)
     {
         var task = await _context.Tasks
             .Include(t => t.Labels)
@@ -426,10 +426,10 @@ public class TaskService : ITaskService
         var (hasAccess, _) = await _checkAccessService.CheckBoardAccessAsync(task.TaskList.BoardId, BoardRole.Editor);
         if (!hasAccess) throw new UnauthorizedAccessException();
 
-        var label = await _context.Labels.FindAsync(addLabelDto.LabelId);
+        var label = await _context.Labels.FindAsync(labelId);
         if (label == null) throw new KeyNotFoundException("Label not found");
 
-        if (task.Labels.Any(l => l.Id == addLabelDto.LabelId))
+        if (task.Labels.Any(l => l.Id == labelId))
             throw new InvalidOperationException("Label already added to task");
 
         task.Labels.Add(label);
@@ -750,5 +750,28 @@ public class TaskService : ITaskService
                 FileUrl = $"/attachments/{attachment.FilePath}"
             })
         };
+    }
+
+    public async Task<IEnumerable<Domain.Entities.Task>> GetTasksDueBetweenAsync(DateTime start, DateTime end)
+    {
+        return await _context.Tasks
+            .Include(t => t.Members)
+            .ThenInclude(m => m.User)
+            .Where(t => t.DueDate != null &&
+                       t.DueDate >= start &&
+                       t.DueDate <= end &&
+                       !t.IsCompleted &&
+                       !t.DueDateNotificationSent)
+            .ToListAsync();
+    }
+
+    public async System.Threading.Tasks.Task MarkDueDateNotificationSentAsync(int taskId)
+    {
+        var task = await _context.Tasks.FindAsync(taskId);
+        if (task != null)
+        {
+            task.DueDateNotificationSent = true;
+            await _context.SaveChangesAsync();
+        }
     }
 }

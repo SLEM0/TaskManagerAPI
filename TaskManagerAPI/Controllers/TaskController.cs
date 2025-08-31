@@ -90,12 +90,12 @@ public class TaskController : ControllerBase
         }
     }
 
-    [HttpPost("{taskId}/labels")]
-    public async Task<ActionResult<TaskResponseDto>> AddLabelToTask(int taskId, [FromBody] AddLabelRequestDto addLabelDto)
+    [HttpPost("{taskId}/labels/{labelId}")]
+    public async Task<ActionResult<TaskResponseDto>> AddLabelToTask(int taskId, int labelId)
     {
         try
         {
-            var task = await _taskService.AddLabelToTaskAsync(taskId, addLabelDto);
+            var task = await _taskService.AddLabelToTaskAsync(taskId, labelId);
             return Ok(task);
         }
         catch (KeyNotFoundException ex)

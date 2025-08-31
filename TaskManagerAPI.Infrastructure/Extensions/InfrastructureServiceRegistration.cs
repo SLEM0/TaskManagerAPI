@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using TaskManagerAPI.Application.BackgroundServices;
 using TaskManagerAPI.Application.Interfaces;
 using TaskManagerAPI.Infrastructure.Data;
+using TaskManagerAPI.Infrastructure.Options;
 using TaskManagerAPI.Infrastructure.Services;
 
 namespace TaskManagerAPI.Infrastructure.Extensions;
@@ -14,6 +16,8 @@ public static class InfrastructureServiceRegistration
         // Database
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+
+        services.Configure<SmtpSettings>(configuration.GetSection("SmtpSettings"));
 
         // Services
         services.AddHttpContextAccessor();
@@ -28,6 +32,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IUserContext, UserContext>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAttachmentService, AttachmentService>();
+        services.AddHostedService<DueDateNotificationWorker>();
+        services.AddScoped<IEmailService, EmailService>();
         return services;
     }
 }

@@ -9,6 +9,7 @@ public class Task
     public bool IsCompleted { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow; // Добавляем
     public int Order { get; set; }
+    public bool DueDateNotificationSent { get; set; }
 
     // Связи
     public int TaskListId { get; set; }  // ID списка

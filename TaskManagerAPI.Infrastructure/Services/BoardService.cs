@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using TaskManagerAPI.Application.Dtos.Board;
 using TaskManagerAPI.Application.Dtos.Label;
 using TaskManagerAPI.Application.Dtos.Member;
@@ -447,40 +446,30 @@ public class BoardService : IBoardService
         // Фильтр по сроку выполнения (с учетом времени!)
         if (filterDto.DueDatePreset.HasValue)
         {
-            var now = DateTime.UtcNow; // Текущее время с учетом часов и минут
+            var now = DateTime.UtcNow;
 
             query = filterDto.DueDatePreset.Value switch
             {
+                // Без срока
+                DueDateFilter.NoDate => query.Where(t => t.DueDate == null),
+
                 // Просроченные: срок меньше текущего момента
                 DueDateFilter.Expired => query.Where(t => t.DueDate != null && t.DueDate < now),
 
-                // Сегодня: срок между началом сегодняшнего дня и началом завтрашнего
-                DueDateFilter.DueToday => query.Where(t => t.DueDate != null &&
-                    t.DueDate >= now.Date &&
-                    t.DueDate < now.Date.AddDays(1)),
-
-                // Завтра: срок между началом завтрашнего дня и началом послезавтра
-                DueDateFilter.DueTomorrow => query.Where(t => t.DueDate != null &&
-                    t.DueDate >= now.Date.AddDays(1) &&
-                    t.DueDate < now.Date.AddDays(2)),
-
-                // Эта неделя: срок между сейчас и концом недели
-                DueDateFilter.ThisWeek => query.Where(t => t.DueDate != null &&
+                // Истекает в течение суток: срок между сейчас и через 24 часа
+                DueDateFilter.DueWithinDay => query.Where(t => t.DueDate != null &&
                     t.DueDate >= now &&
-                    t.DueDate < now.Date.AddDays(7 - (int)now.DayOfWeek)),
+                    t.DueDate <= now.AddHours(24)),
 
-                // Следующая неделя: срок между началом след. недели и концом след. недели
-                DueDateFilter.NextWeek => query.Where(t => t.DueDate != null &&
-                    t.DueDate >= now.Date.AddDays(7 - (int)now.DayOfWeek) &&
-                    t.DueDate < now.Date.AddDays(14 - (int)now.DayOfWeek)),
-
-                // Этот месяц: срок между сейчас и концом месяца
-                DueDateFilter.ThisMonth => query.Where(t => t.DueDate != null &&
+                // Истекает в течение недели: срок между сейчас и через 7 дней
+                DueDateFilter.DueWithinWeek => query.Where(t => t.DueDate != null &&
                     t.DueDate >= now &&
-                    t.DueDate < new DateTime(now.Year, now.Month, 1).AddMonths(1)),
+                    t.DueDate <= now.AddDays(7)),
 
-                // Без срока
-                DueDateFilter.NoDate => query.Where(t => t.DueDate == null),
+                // Истекает в течение месяца: срок между сейчас и через 30 дней
+                DueDateFilter.DueWithinMonth => query.Where(t => t.DueDate != null &&
+                    t.DueDate >= now &&
+                    t.DueDate <= now.AddDays(30)),
 
                 _ => query
             };
