@@ -1,36 +1,33 @@
+version: '3.9'
+
 services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_DB: taskmanager
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: yourpassword
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   taskmanagerapi:
-    image: ${DOCKER_REGISTRY-}taskmanagerapi
     build:
       context: .
       dockerfile: TaskManagerAPI/Dockerfile
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=taskmanager;Username=postgres;Password=yourpassword
-      - Jwt__Key=your_super_secret_key_here_at_least_64_chars_your_super_secret_key_here_at_least_64_chars
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - Jwt__Key=${JWT_KEY}
       - Jwt__Issuer=TaskManagerAPI
       - Jwt__Audience=TaskManagerClient
+      - SmtpSettings__Password=${SMTP_PASSWORD}
+      - SmtpSettings__FromEmail=${SMTP_EMAIL}
+    ports:
+      - "8080:8080"
+      - "8081:8081"
     depends_on:
       - postgres
-
-  frontend:
-    build:
-      context: ./frontend  
-      dockerfile: Dockerfile
-    ports:
-      - "3000:80"  
-    depends_on:
-      - taskmanagerapi  
 
 volumes:
   postgres_data:
