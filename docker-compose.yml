@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: taskmanager
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: yourpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  taskmanagerapi:
+    image: ${DOCKER_REGISTRY-}taskmanagerapi
+    build:
+      context: .
+      dockerfile: TaskManagerAPI/Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=taskmanager;Username=postgres;Password=yourpassword
+      - Jwt__Key=your_super_secret_key_here_at_least_64_chars_your_super_secret_key_here_at_least_64_chars
+      - Jwt__Issuer=TaskManagerAPI
+      - Jwt__Audience=TaskManagerClient
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./frontend  
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"  
+    depends_on:
+      - taskmanagerapi  
+
+volumes:
+  postgres_data:
